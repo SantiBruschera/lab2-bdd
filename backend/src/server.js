@@ -7,15 +7,19 @@ const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/umdb';
 
 app.use(cors());
+app.use(express.json());
+
+app.use('/api/movies', require('./routes/movies'));
+app.use('/api/reviews', require('./routes/reviews'));
 
 app.get('/api/status', (_req, res) => {
   res.json({
     ok: true,
-    service: 'umdb-template-backend',
+    service: 'umdb-backend',
     mongo: {
       connected: mongoose.connection.readyState === 1,
-      readyState: mongoose.connection.readyState
-    }
+      readyState: mongoose.connection.readyState,
+    },
   });
 });
 
@@ -25,6 +29,7 @@ async function start() {
     console.log('Connected to MongoDB');
   } catch (error) {
     console.error('MongoDB connection failed:', error.message);
+    process.exit(1);
   }
 
   app.listen(PORT, () => {
