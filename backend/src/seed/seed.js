@@ -1,170 +1,142 @@
 /**
- * Seed script — imports movies and reviews from CSV files.
+ * Seed script para mongodb.csv
  *
- * Usage:
+ * Uso local:
  *   MONGO_URI=mongodb://localhost:27017/umdb node src/seed/seed.js
  *
- * Expected CSV columns (adjust FIELD_MAP below to match your actual CSV):
+ * Uso con Docker:
+ *   docker exec -it umdb-template-backend \
+ *     sh -c "MONGO_URI=mongodb://mongo:27017/umdb CSV_PATH=/data/mongodb.csv node src/seed/seed.js"
  *
- * movies.csv:
- *   title, year, genres, director, actors, plot, runtime, poster_url, rating
- *   - genres: comma-separated  e.g. "Drama,Crime"
- *   - actors: pipe-separated   e.g. "Tim Robbins|Morgan Freeman"
- *
- * reviews.csv:
- *   title, author, rating, text, date
+ * Formato del CSV:
+ *   - categories, actors, directors, reviews → strings con JSON embebido
+ *   - avg_rating  → escala 0-5 (MovieLens) → se convierte a 0-10
+ *   - reviews[].rating → escala 1-5 → se convierte a 1-10
+ *   - reviews[].timestamp → Unix en milisegundos
  */
 
-const fs = require('fs');
+const fs   = require('fs');
 const path = require('path');
-const csv = require('csv-parser');
+const csv  = require('csv-parser');
 const mongoose = require('mongoose');
-const Movie = require('../models/Movie');
+const Movie  = require('../models/Movie');
 const Review = require('../models/Review');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/umdb';
+const CSV_PATH  = process.env.CSV_PATH  || path.resolve(__dirname, '../../../../mongodb.csv');
 
-// ── Adjust these paths to point at your CSV files ──────────────────────────
-const MOVIES_CSV = path.resolve(__dirname, '../../../../movies.csv');
-const REVIEWS_CSV = path.resolve(__dirname, '../../../../reviews.csv');
+const MAX_REVIEWS_PER_MOVIE = 5000;
+const MAX_REVIEW_CHARS      = 10000;
+const MAX_ACTORS            = 100;
 
-// ── Column name mapping (CSV header → internal field) ──────────────────────
-// Change the right-hand values to match your actual CSV column names.
-const MOVIE_MAP = {
-  title:      'title',
-  year:       'year',
-  genres:     'genres',     // comma-separated list
-  director:   'director',
-  actors:     'actors',     // pipe-separated list  (e.g. "Actor A|Actor B")
-  plot:       'plot',
-  runtime:    'runtime',
-  poster_url: 'poster_url',
-  avg_rating: 'rating',     // initial rating from source (overwritten by reviews)
-};
-
-const REVIEW_MAP = {
-  title:  'title',
-  author: 'author',
-  rating: 'rating',
-  text:   'text',
-  date:   'date',
-};
-
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────
 function readCSV(filePath) {
   return new Promise((resolve, reject) => {
     const rows = [];
     fs.createReadStream(filePath)
       .pipe(csv())
       .on('data', row => rows.push(row))
-      .on('end', () => resolve(rows))
+      .on('end',  () => resolve(rows))
       .on('error', reject);
   });
 }
 
-function parseActors(str) {
-  if (!str) return [];
-  return str.split('|')
-    .map(s => s.trim())
-    .filter(Boolean)
-    .slice(0, 100)
-    .map(name => ({ name }));
+function parseJSON(str, fallback = []) {
+  try { return JSON.parse(str); } catch { return fallback; }
 }
 
-function parseGenres(str) {
-  if (!str) return [];
-  return str.split(',').map(s => s.trim()).filter(Boolean);
+// Convierte rating de escala 1-5 a 1-10
+function toTenScale(rating) {
+  const val = Math.round(parseFloat(rating) * 2);
+  return Math.min(10, Math.max(1, val));
 }
 
-// ── Main ───────────────────────────────────────────────────────────────────
+// ── Main ────────────────────────────────────────────────────────
 async function seed() {
-  await mongoose.connect(MONGO_URI);
-  console.log('Connected to MongoDB');
-
-  // Clear existing data
-  await Movie.deleteMany({});
-  await Review.deleteMany({});
-  console.log('Cleared existing movies and reviews');
-
-  // ── Movies ────────────────────────────────────────────────────────────
-  if (!fs.existsSync(MOVIES_CSV)) {
-    console.warn(`movies.csv not found at ${MOVIES_CSV} — skipping movies import`);
-  } else {
-    const rows = await readCSV(MOVIES_CSV);
-    const docs = rows.map(row => ({
-      title:      row[MOVIE_MAP.title]?.trim(),
-      year:       parseInt(row[MOVIE_MAP.year]) || undefined,
-      genres:     parseGenres(row[MOVIE_MAP.genres]),
-      director:   row[MOVIE_MAP.director]?.trim(),
-      actors:     parseActors(row[MOVIE_MAP.actors]),
-      plot:       row[MOVIE_MAP.plot]?.trim(),
-      runtime:    parseInt(row[MOVIE_MAP.runtime]) || undefined,
-      poster_url: row[MOVIE_MAP.poster_url]?.trim(),
-      avg_rating: parseFloat(row[MOVIE_MAP.avg_rating]) || 0,
-    })).filter(d => d.title);
-
-    await Movie.insertMany(docs, { ordered: false });
-    console.log(`Inserted ${docs.length} movies`);
+  if (!fs.existsSync(CSV_PATH)) {
+    console.error(`CSV no encontrado en: ${CSV_PATH}`);
+    console.error('Especificá la ruta con: CSV_PATH=/ruta/al/archivo.csv node src/seed/seed.js');
+    process.exit(1);
   }
 
-  // ── Reviews ───────────────────────────────────────────────────────────
-  if (!fs.existsSync(REVIEWS_CSV)) {
-    console.warn(`reviews.csv not found at ${REVIEWS_CSV} — skipping reviews import`);
-  } else {
-    const rows = await readCSV(REVIEWS_CSV);
-    let inserted = 0;
-    let skipped = 0;
+  await mongoose.connect(MONGO_URI);
+  console.log('Conectado a MongoDB');
 
-    // Build title → _id map
-    const movies = await Movie.find({}, 'title');
-    const titleMap = {};
-    for (const m of movies) titleMap[m.title.toLowerCase()] = m._id;
+  await Movie.deleteMany({});
+  await Review.deleteMany({});
+  console.log('Colecciones limpiadas\n');
 
-    const reviewDocs = [];
-    for (const row of rows) {
-      const title = row[REVIEW_MAP.title]?.trim().toLowerCase();
-      const movie_id = titleMap[title];
-      if (!movie_id) { skipped++; continue; }
+  const rows = await readCSV(CSV_PATH);
+  console.log(`${rows.length} filas leídas del CSV`);
 
-      reviewDocs.push({
-        movie_id,
-        author: row[REVIEW_MAP.author]?.trim() || 'Anonymous',
-        rating: parseFloat(row[REVIEW_MAP.rating]) || 5,
-        text:   row[REVIEW_MAP.text]?.slice(0, 10000),
-        date:   row[REVIEW_MAP.date] ? new Date(row[REVIEW_MAP.date]) : new Date(),
-      });
-    }
+  let movieCount  = 0;
+  let reviewCount = 0;
+  let skipped     = 0;
 
-    // Limit to 5000 reviews per movie
-    const countMap = {};
-    const filtered = reviewDocs.filter(r => {
-      const key = r.movie_id.toString();
-      countMap[key] = (countMap[key] || 0) + 1;
-      return countMap[key] <= 5000;
+  for (const row of rows) {
+    const title = row.imdb_primary_title?.trim() || row.title?.trim();
+    if (!title) { skipped++; continue; }
+
+    const categories  = parseJSON(row.categories,  []);
+    const actorNames  = parseJSON(row.actors,       []);
+    const directorArr = parseJSON(row.directors,    []);
+    const reviewsRaw  = parseJSON(row.reviews,      []);
+
+    // Crear la película
+    const movie = await Movie.create({
+      title,
+      year:       parseInt(row.year) || undefined,
+      genres:     categories,
+      director:   directorArr[0] || undefined,
+      actors:     actorNames.slice(0, MAX_ACTORS).map(name => ({ name })),
+      // avg_rating viene del CSV (escala 0-5 → 0-10), más representativo
+      // porque está calculado sobre miles de ratings de MovieLens
+      avg_rating: Math.round(parseFloat(row.avg_rating) * 2 * 10) / 10,
+      review_count: 0,
     });
+    movieCount++;
 
-    if (filtered.length > 0) {
-      await Review.insertMany(filtered, { ordered: false });
-      inserted = filtered.length;
+    // Insertar reviews embebidas en el CSV (máx 5000)
+    const toInsert = reviewsRaw.slice(0, MAX_REVIEWS_PER_MOVIE);
+    if (toInsert.length > 0) {
+      const reviewDocs = toInsert.map(r => ({
+        movie_id: movie._id,
+        author:   'Anonymous',
+        rating:   toTenScale(r.rating),
+        text:     String(r.text || '').slice(0, MAX_REVIEW_CHARS),
+        date:     r.timestamp ? new Date(r.timestamp) : new Date(),
+      }));
+
+      await Review.insertMany(reviewDocs, { ordered: false });
+      reviewCount += reviewDocs.length;
     }
-    console.log(`Inserted ${inserted} reviews (skipped ${skipped} unmatched rows)`);
 
-    // Recalculate avg_rating and review_count for each movie
-    const aggs = await Review.aggregate([
-      { $group: { _id: '$movie_id', avg: { $avg: '$rating' }, count: { $sum: 1 } } },
-    ]);
+    if (movieCount % 50 === 0) {
+      console.log(`  ${movieCount} películas procesadas...`);
+    }
+  }
+
+  // Actualizar review_count en cada película
+  const aggs = await Review.aggregate([
+    { $group: { _id: '$movie_id', count: { $sum: 1 } } },
+  ]);
+
+  if (aggs.length > 0) {
     const bulkOps = aggs.map(a => ({
       updateOne: {
         filter: { _id: a._id },
-        update: { avg_rating: Math.round(a.avg * 10) / 10, review_count: a.count },
+        update: { $set: { review_count: a.count } },
       },
     }));
-    if (bulkOps.length) await Movie.bulkWrite(bulkOps);
-    console.log('Updated avg_rating for all movies');
+    await Movie.bulkWrite(bulkOps);
   }
 
+  console.log(`\nFinalizado:`);
+  console.log(`  Películas insertadas : ${movieCount}`);
+  console.log(`  Reviews insertadas   : ${reviewCount}`);
+  if (skipped) console.log(`  Filas omitidas       : ${skipped}`);
+
   await mongoose.disconnect();
-  console.log('Done');
 }
 
 seed().catch(err => {
