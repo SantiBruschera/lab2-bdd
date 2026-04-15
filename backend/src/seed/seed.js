@@ -1,19 +1,4 @@
-/**
- * Seed script para mongodb.csv
- *
- * Uso local:
- *   MONGO_URI=mongodb://localhost:27017/umdb node src/seed/seed.js
- *
- * Uso con Docker:
- *   docker exec -it umdb-template-backend \
- *     sh -c "MONGO_URI=mongodb://mongo:27017/umdb CSV_PATH=/data/mongodb.csv node src/seed/seed.js"
- *
- * Formato del CSV:
- *   - categories, actors, directors, reviews → strings con JSON embebido
- *   - avg_rating  → escala 0-5 (MovieLens) → se convierte a 0-10
- *   - reviews[].rating → escala 1-5 → se convierte a 1-10
- *   - reviews[].timestamp → Unix en milisegundos
- */
+
 
 const fs   = require('fs');
 const path = require('path');
@@ -25,19 +10,19 @@ const ReviewBucket = require('../models/ReviewBucket');
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/umdb';
 const CSV_PATH  = process.env.CSV_PATH  || path.resolve(__dirname, '../../../../mongodb.csv');
 
-const BUCKET_SIZE           = 1000; // reviews por bucket
-const MAX_REVIEWS_PER_MOVIE = 5000; // máx 5 buckets por película
+const BUCKET_SIZE           = 1000; 
+const MAX_REVIEWS_PER_MOVIE = 5000; 
 const MAX_REVIEW_CHARS      = 10000;
 const MAX_ACTORS            = 100;
 
-// Divide un array en grupos de `size`
+
 function chunk(arr, size) {
   const chunks = [];
   for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
   return chunks;
 }
 
-// ── Helpers ────────────────────────────────────────────────────
+
 function readCSV(filePath) {
   return new Promise((resolve, reject) => {
     const rows = [];
@@ -57,17 +42,17 @@ function parseJSON(str, fallback = []) {
       return Array.isArray(v) ? v : null;
     } catch { return null; }
   };
-  // Intenta directo; si falla, reemplaza \" por " (escaping no estándar del CSV)
+
   return tryParse(str) ?? tryParse(str.replace(/\\"/g, '"')) ?? fallback;
 }
 
-// Convierte rating de escala 1-5 a 1-10
+
 function toTenScale(rating) {
   const val = Math.round(parseFloat(rating) * 2);
   return Math.min(10, Math.max(1, val));
 }
 
-// ── Main ────────────────────────────────────────────────────────
+
 async function seed() {
   if (!fs.existsSync(CSV_PATH)) {
     console.error(`CSV no encontrado en: ${CSV_PATH}`);
@@ -98,7 +83,7 @@ async function seed() {
     const directorArr = parseJSON(row.directors,    []);
     const reviewsRaw  = parseJSON(row.reviews,      []);
 
-    // Crear la película
+
     const movie = await Movie.create({
       title,
       year:       parseInt(row.year) || undefined,
@@ -106,14 +91,13 @@ async function seed() {
       director:   directorArr[0] || undefined,
       actors:     actorNames.slice(0, MAX_ACTORS).map(name => ({ name })),
       imdb_id:    row.imdb_tconst?.trim() || undefined,
-      // avg_rating viene del CSV (escala 0-5 → 0-10), más representativo
-      // porque está calculado sobre miles de ratings de MovieLens
+
       avg_rating: Math.round(parseFloat(row.avg_rating) * 2 * 10) / 10,
       review_count: 0,
     });
     movieCount++;
 
-    // Crear buckets de reviews (máx 5000 reviews = 5 buckets de 1000)
+
     const toInsert = reviewsRaw.slice(0, MAX_REVIEWS_PER_MOVIE);
     if (toInsert.length > 0) {
       const reviewDocs = toInsert.map(r => ({
@@ -123,7 +107,7 @@ async function seed() {
         date:   r.timestamp ? new Date(r.timestamp) : new Date(),
       }));
 
-      // Dividir en buckets de 1000 e insertar uno por uno
+   
       const buckets = chunk(reviewDocs, BUCKET_SIZE);
       const bucketDocs = buckets.map((reviews, i) => ({
         movie_id: movie._id,
@@ -141,7 +125,7 @@ async function seed() {
     }
   }
 
-  // Actualizar review_count sumando el count de todos los buckets de cada película
+
   const aggs = await ReviewBucket.aggregate([
     { $group: { _id: '$movie_id', count: { $sum: '$count' } } },
   ]);

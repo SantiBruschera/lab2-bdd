@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Movie = require('../models/Movie');
 
-// GET /api/movies — home page list, sorted by rating descending
+
 router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 12, genre } = req.query;
@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/movies/ranking — full ranking with optional genre filter
+
 router.get('/ranking', async (req, res) => {
   try {
     const { genre, limit = 100 } = req.query;
@@ -40,7 +40,7 @@ router.get('/ranking', async (req, res) => {
   }
 });
 
-// GET /api/movies/genres — distinct genre list
+
 router.get('/genres', async (req, res) => {
   try {
     const genres = await Movie.distinct('genres');
@@ -50,7 +50,7 @@ router.get('/genres', async (req, res) => {
   }
 });
 
-// GET /api/movies/search — full-text search by title, director, actor
+
 router.get('/search', async (req, res) => {
   try {
     const { q, page = 1, limit = 12 } = req.query;
@@ -74,7 +74,7 @@ router.get('/search', async (req, res) => {
   }
 });
 
-// GET /api/movies/:id — movie detail
+
 router.get('/:id', async (req, res) => {
   try {
     const movie = await Movie.findById(req.params.id);
