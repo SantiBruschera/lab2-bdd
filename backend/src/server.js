@@ -9,8 +9,10 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/umdb';
 app.use(cors());
 app.use(express.json());
 
-app.use('/api/movies', require('./routes/movies'));
-app.use('/api/reviews', require('./routes/reviews'));
+app.use('/api/movies',    require('./routes/movies'));
+app.use('/api/reviews',   require('./routes/reviews'));
+app.use('/api/auth',      require('./routes/auth'));
+app.use('/api/favorites', require('./routes/favorites'));
 
 app.get('/api/status', (_req, res) => {
   res.json({

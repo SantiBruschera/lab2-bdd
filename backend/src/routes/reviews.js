@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const ReviewBucket = require('../models/ReviewBucket');
 const Movie = require('../models/Movie');
+const { optionalAuth } = require('../middleware/auth');
 
 const BUCKET_SIZE = 1000; 
 const MAX_REVIEWS = 5000; 
@@ -33,7 +34,7 @@ router.get('/:movieId', async (req, res) => {
 });
 
 
-router.post('/', async (req, res) => {
+router.post('/', optionalAuth, async (req, res) => {
   try {
     const { movie_id, author, rating, text } = req.body;
 
@@ -52,7 +53,7 @@ router.post('/', async (req, res) => {
     }
 
     const newReview = {
-      author: author?.trim() || 'Anonymous',
+      author: req.user?.username || author?.trim() || 'Anonymous',
       rating: Number(rating),
       text:   text?.slice(0, 10000),
       date:   new Date(),

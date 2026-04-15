@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReviewCard from '../components/ReviewCard';
 import ReviewForm from '../components/ReviewForm';
+import { useAuth } from '../context/AuthContext';
 
 const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 const REVIEW_LIMIT = 10;
@@ -9,11 +10,14 @@ const REVIEW_LIMIT = 10;
 export default function MovieDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user, token } = useAuth();
 
   const [movie, setMovie] = useState(null);
   const [reviews, setReviews] = useState({ reviews: [], total: 0 });
   const [reviewPage, setReviewPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [isFav, setIsFav]     = useState(false);
+  const [favLoading, setFavLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -33,6 +37,29 @@ export default function MovieDetail() {
   }, [id, reviewPage]);
 
   useEffect(() => { loadReviews(); }, [loadReviews]);
+
+  // Verificar si la película está en favoritos
+  useEffect(() => {
+    if (!user || !id) return;
+    fetch(`${BASE}/favorites/check/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(data => setIsFav(data.isFavorite))
+      .catch(() => {});
+  }, [user, token, id]);
+
+  async function toggleFav() {
+    if (!user) { navigate('/login'); return; }
+    setFavLoading(true);
+    try {
+      const method = isFav ? 'DELETE' : 'POST';
+      await fetch(`${BASE}/favorites/${id}`, {
+        method,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setIsFav(f => !f);
+    } catch {}
+    setFavLoading(false);
+  }
 
   function handleReviewSuccess() {
     setReviewPage(1);
@@ -64,7 +91,17 @@ export default function MovieDetail() {
         }
 
         <div className="detail-info">
-          <h1 className="detail-title">{movie.title}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <h1 className="detail-title" style={{ margin: 0 }}>{movie.title}</h1>
+            <button
+              className={`btn fav-btn${isFav ? ' fav-btn--active' : ''}`}
+              onClick={toggleFav}
+              disabled={favLoading}
+              title={user ? (isFav ? 'Quitar de favoritos' : 'Agregar a favoritos') : 'Iniciá sesión para guardar favoritos'}
+            >
+              {isFav ? '♥ En favoritos' : '♡ Favoritos'}
+            </button>
+          </div>
 
           {metaParts.length > 0 && (
             <p className="detail-meta">{metaParts.join(' · ')}</p>

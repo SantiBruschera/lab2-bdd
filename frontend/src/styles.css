@@ -525,3 +525,82 @@ body { margin: 0; min-height: 100vh; }
   margin-bottom: 1rem;
   font-size: 0.875rem;
 }
+
+/* ── Navbar auth ─────────────────────────────────────────── */
+.navbar-auth {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.75rem;
+  flex-shrink: 0;
+}
+
+.navbar-username {
+  color: var(--accent);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+/* ── Favorites button ────────────────────────────────────── */
+.fav-btn {
+  border-color: var(--card-border);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.fav-btn--active {
+  color: #f87171;
+  border-color: #f87171;
+  background: #1f1010;
+}
+
+.fav-btn--active:hover:not(:disabled) {
+  background: #2a1010;
+  border-color: #f87171;
+}
+
+/* ── Auth pages ──────────────────────────────────────────── */
+.auth-page {
+  min-height: calc(100vh - 60px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.auth-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.auth-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem;
+}
+
+.auth-submit {
+  width: 100%;
+  padding: 0.7rem;
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.auth-footer {
+  text-align: center;
+  margin-top: 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.auth-footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.auth-footer a:hover { text-decoration: underline; }
