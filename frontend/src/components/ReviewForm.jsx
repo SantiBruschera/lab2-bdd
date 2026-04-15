@@ -83,7 +83,7 @@ export default function ReviewForm({ movieId, onSuccess }) {
           placeholder="Escribe tu reseña aquí..."
           value={form.text}
           onChange={set('text')}
-          maxLength={10000}
+          maxLength={5000}
         />
       </div>
       <div className="form-actions">

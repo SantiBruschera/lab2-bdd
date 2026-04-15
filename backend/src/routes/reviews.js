@@ -55,7 +55,7 @@ router.post('/', optionalAuth, async (req, res) => {
     const newReview = {
       author: req.user?.username || author?.trim() || 'Anonymous',
       rating: Number(rating),
-      text:   text?.slice(0, 10000),
+      text:   text?.slice(0, 5000),
       date:   new Date(),
     };
 

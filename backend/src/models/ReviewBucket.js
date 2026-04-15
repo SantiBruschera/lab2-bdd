@@ -6,7 +6,7 @@ const reviewSchema = new mongoose.Schema({
   rating: { type: Number, required: true, min: 1, max: 10 },
   text: {
     type: String,
-    maxlength: [10000, 'Review text cannot exceed 10000 characters'],
+    maxlength: [5000, 'Review text cannot exceed 5000 characters'],
   },
   date: { type: Date, default: Date.now },
 }, { _id: false });
