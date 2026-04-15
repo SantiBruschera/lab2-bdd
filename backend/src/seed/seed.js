@@ -34,7 +34,7 @@ function readCSV(filePath) {
   return new Promise((resolve, reject) => {
     const rows = [];
     fs.createReadStream(filePath)
-      .pipe(csv())
+      .pipe(csv({ escape: '\\' }))
       .on('data', row => rows.push(row))
       .on('end',  () => resolve(rows))
       .on('error', reject);
@@ -42,7 +42,15 @@ function readCSV(filePath) {
 }
 
 function parseJSON(str, fallback = []) {
-  try { return JSON.parse(str); } catch { return fallback; }
+  if (!str || typeof str !== 'string') return fallback;
+  const tryParse = (s) => {
+    try {
+      const v = JSON.parse(s);
+      return Array.isArray(v) ? v : null;
+    } catch { return null; }
+  };
+  // Intenta directo; si falla, reemplaza \" por " (escaping no estándar del CSV)
+  return tryParse(str) ?? tryParse(str.replace(/\\"/g, '"')) ?? fallback;
 }
 
 // Convierte rating de escala 1-5 a 1-10
@@ -89,6 +97,7 @@ async function seed() {
       genres:     categories,
       director:   directorArr[0] || undefined,
       actors:     actorNames.slice(0, MAX_ACTORS).map(name => ({ name })),
+      imdb_id:    row.imdb_tconst?.trim() || undefined,
       // avg_rating viene del CSV (escala 0-5 → 0-10), más representativo
       // porque está calculado sobre miles de ratings de MovieLens
       avg_rating: Math.round(parseFloat(row.avg_rating) * 2 * 10) / 10,

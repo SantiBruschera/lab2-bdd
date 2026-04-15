@@ -17,6 +17,7 @@ const movieSchema = new mongoose.Schema({
       message: 'A movie can have at most 100 actors',
     },
   },
+  imdb_id: String,
   poster_url: String,
   plot: String,
   runtime: Number,
