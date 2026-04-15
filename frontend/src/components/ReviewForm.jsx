@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 
@@ -8,7 +9,8 @@ const LABELS = {
 };
 
 export default function ReviewForm({ movieId, onSuccess }) {
-  const [form, setForm] = useState({ author: '', rating: 7, text: '' });
+  const { user, token } = useAuth();
+  const [form, setForm]   = useState({ author: '', rating: 7, text: '' });
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -19,9 +21,12 @@ export default function ReviewForm({ movieId, onSuccess }) {
     setLoading(true);
     setStatus(null);
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(`${BASE}/reviews`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ movie_id: movieId, ...form, rating: Number(form.rating) }),
       });
       const data = await res.json();
@@ -44,16 +49,25 @@ export default function ReviewForm({ movieId, onSuccess }) {
           {status.msg}
         </div>
       )}
-      <div className="form-group">
-        <label>Nombre (opcional)</label>
-        <input
-          type="text"
-          placeholder="Tu nombre"
-          value={form.author}
-          onChange={set('author')}
-          maxLength={100}
-        />
-      </div>
+
+      {/* Si está logueado muestra su nombre, si no muestra el campo */}
+      {user ? (
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+          Publicando como <strong style={{ color: 'var(--accent)' }}>{user.username}</strong>
+        </p>
+      ) : (
+        <div className="form-group">
+          <label>Nombre (opcional)</label>
+          <input
+            type="text"
+            placeholder="Tu nombre"
+            value={form.author}
+            onChange={set('author')}
+            maxLength={100}
+          />
+        </div>
+      )}
+
       <div className="form-group">
         <label>Calificación</label>
         <select value={form.rating} onChange={set('rating')}>
