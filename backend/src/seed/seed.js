@@ -19,15 +19,23 @@ const fs   = require('fs');
 const path = require('path');
 const csv  = require('csv-parser');
 const mongoose = require('mongoose');
-const Movie  = require('../models/Movie');
-const Review = require('../models/Review');
+const Movie        = require('../models/Movie');
+const ReviewBucket = require('../models/ReviewBucket');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/umdb';
 const CSV_PATH  = process.env.CSV_PATH  || path.resolve(__dirname, '../../../../mongodb.csv');
 
-const MAX_REVIEWS_PER_MOVIE = 5000;
+const BUCKET_SIZE           = 1000; // reviews por bucket
+const MAX_REVIEWS_PER_MOVIE = 5000; // máx 5 buckets por película
 const MAX_REVIEW_CHARS      = 10000;
 const MAX_ACTORS            = 100;
+
+// Divide un array en grupos de `size`
+function chunk(arr, size) {
+  const chunks = [];
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+  return chunks;
+}
 
 // ── Helpers ────────────────────────────────────────────────────
 function readCSV(filePath) {
@@ -71,7 +79,7 @@ async function seed() {
   console.log('Conectado a MongoDB');
 
   await Movie.deleteMany({});
-  await Review.deleteMany({});
+  await ReviewBucket.deleteMany({});
   console.log('Colecciones limpiadas\n');
 
   const rows = await readCSV(CSV_PATH);
@@ -105,19 +113,27 @@ async function seed() {
     });
     movieCount++;
 
-    // Insertar reviews embebidas en el CSV (máx 5000)
+    // Crear buckets de reviews (máx 5000 reviews = 5 buckets de 1000)
     const toInsert = reviewsRaw.slice(0, MAX_REVIEWS_PER_MOVIE);
     if (toInsert.length > 0) {
       const reviewDocs = toInsert.map(r => ({
-        movie_id: movie._id,
-        author:   'Anonymous',
-        rating:   toTenScale(r.rating),
-        text:     String(r.text || '').slice(0, MAX_REVIEW_CHARS),
-        date:     r.timestamp ? new Date(r.timestamp) : new Date(),
+        author: 'Anonymous',
+        rating: toTenScale(r.rating),
+        text:   String(r.text || '').slice(0, MAX_REVIEW_CHARS),
+        date:   r.timestamp ? new Date(r.timestamp) : new Date(),
       }));
 
-      await Review.insertMany(reviewDocs, { ordered: false });
-      reviewCount += reviewDocs.length;
+      // Dividir en buckets de 1000 e insertar uno por uno
+      const buckets = chunk(reviewDocs, BUCKET_SIZE);
+      const bucketDocs = buckets.map((reviews, i) => ({
+        movie_id: movie._id,
+        bucket:   i + 1,
+        count:    reviews.length,
+        reviews,
+      }));
+
+      await ReviewBucket.insertMany(bucketDocs, { ordered: false });
+      reviewCount += toInsert.length;
     }
 
     if (movieCount % 50 === 0) {
@@ -125,9 +141,9 @@ async function seed() {
     }
   }
 
-  // Actualizar review_count en cada película
-  const aggs = await Review.aggregate([
-    { $group: { _id: '$movie_id', count: { $sum: 1 } } },
+  // Actualizar review_count sumando el count de todos los buckets de cada película
+  const aggs = await ReviewBucket.aggregate([
+    { $group: { _id: '$movie_id', count: { $sum: '$count' } } },
   ]);
 
   if (aggs.length > 0) {
