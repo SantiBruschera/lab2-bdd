@@ -80,12 +80,15 @@ export default function MovieDetail() {
     movie.runtime && `${movie.runtime} min`,
   ].filter(Boolean);
 
+  // Validación estricta del póster al igual que en la tarjeta
+  const hasValidPoster = movie.poster_url && movie.poster_url.startsWith('http') && !movie.poster_url.includes('placeholder');
+
   return (
     <div className="page">
       <button className="btn back-link" onClick={() => navigate(-1)}>← Volver</button>
 
       <div className="detail-hero">
-        {movie.poster_url
+        {hasValidPoster
           ? <img className="detail-poster" src={movie.poster_url} alt={movie.title} />
           : <div className="detail-poster-placeholder">🎬</div>
         }

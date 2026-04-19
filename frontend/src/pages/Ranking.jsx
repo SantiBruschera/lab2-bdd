@@ -48,7 +48,7 @@ export default function Ranking() {
         <div className="ranking-list">
           {movies.map((movie, idx) => {
             const pos = idx + 1;
-            const showPoster = pos <= 10;
+            const hasValidPoster = movie.poster_url && movie.poster_url.startsWith('http') && !movie.poster_url.includes('placeholder');
             return (
               <div
                 key={movie._id}
@@ -59,10 +59,10 @@ export default function Ranking() {
                   #{pos}
                 </span>
 
-                {showPoster && (
-                  movie.poster_url
-                    ? <img className="ranking-poster" src={movie.poster_url} alt={movie.title} loading="lazy" />
-                    : <div className="ranking-poster-placeholder">🎬</div>
+                {hasValidPoster ? (
+                  <img className="ranking-poster" src={movie.poster_url} alt={movie.title} loading="lazy" />
+                ) : (
+                  <div className="ranking-poster-placeholder">🎬</div>
                 )}
 
                 <div className="ranking-info">
