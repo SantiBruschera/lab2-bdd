@@ -26,7 +26,7 @@ const topPosters = {
   "Casablanca": "https://http2.mlstatic.com/D_NQ_NP_722135-CBT97587995257_112025-O.webp",
 };
 
-// Normalizamos las llaves del objeto para facilitar la búsqueda
+
 const normalizedPosters = Object.keys(topPosters).reduce((acc, key) => {
   acc[key.toLowerCase().trim()] = topPosters[key];
   return acc;
@@ -94,7 +94,6 @@ async function seed() {
     const directorArr = parseJSON(row.directors,    []);
     const reviewsRaw  = parseJSON(row.reviews,       []);
 
-    // Buscamos el poster en el objeto normalizado para evitar fallos por mayúsculas
     const posterUrl = normalizedPosters[title.toLowerCase()] || "";
 
     const movie = await Movie.create({
