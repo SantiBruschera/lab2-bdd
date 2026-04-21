@@ -52,10 +52,11 @@ router.post('/', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: `Límite de ${MAX_REVIEWS} reseñas por película alcanzado` });
     }
 
+    const parsedRating = Math.round(Math.min(5, Math.max(0.5, Number(rating))) * 10) / 10;
     const newReview = {
       author: req.user?.username || author?.trim() || 'Anonymous',
-      rating: Number(rating),
-      text:   text?.slice(0, 5000),
+      rating: parsedRating,
+      text:   text?.slice(0, 10000),
       date:   new Date(),
     };
 

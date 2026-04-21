@@ -60,9 +60,9 @@ function parseJSON(str, fallback = []) {
   return tryParse(str) ?? tryParse(str.replace(/\\"/g, '"')) ?? fallback;
 }
 
-function toTenScale(rating) {
-  const val = Math.round(parseFloat(rating) * 2);
-  return Math.min(10, Math.max(1, val));
+function toFiveScale(rating) {
+  const val = Math.round(parseFloat(rating) * 10) / 10;
+  return Math.min(5, Math.max(0.5, val));
 }
 
 async function seed() {
@@ -103,7 +103,7 @@ async function seed() {
       director: directorArr[0] || undefined,
       actors: actorNames.slice(0, MAX_ACTORS).map(name => ({ name })),
       imdb_id: row.imdb_tconst?.trim() || undefined,
-      avg_rating: Math.round(parseFloat(row.avg_rating) * 2 * 10) / 10,
+      avg_rating: Math.round(parseFloat(row.avg_rating) * 10) / 10,
       review_count: 0,
       poster_url: posterUrl
     });
@@ -113,7 +113,7 @@ async function seed() {
     if (toInsert.length > 0) {
       const reviewDocs = toInsert.map(r => ({
         author: 'Anonymous',
-        rating: toTenScale(r.rating),
+        rating: toFiveScale(r.rating),
         text:   String(r.text || '').slice(0, MAX_REVIEW_CHARS),
         date:   r.timestamp ? new Date(r.timestamp) : new Date(),
       }));
@@ -136,14 +136,26 @@ async function seed() {
   }
 
   const aggs = await ReviewBucket.aggregate([
-    { $group: { _id: '$movie_id', count: { $sum: '$count' } } },
+    { $unwind: '$reviews' },
+    { $group: {
+      _id: '$movie_id',
+      count: { $sum: 1 },
+      totalRating: { $sum: '$reviews.rating' },
+    }},
+    { $project: {
+      count: 1,
+      avgRating: { $divide: ['$totalRating', '$count'] },
+    }},
   ]);
 
   if (aggs.length > 0) {
     const bulkOps = aggs.map(a => ({
       updateOne: {
         filter: { _id: a._id },
-        update: { $set: { review_count: a.count } },
+        update: { $set: {
+          review_count: a.count,
+          avg_rating: Math.round(a.avgRating * 10) / 10,
+        }},
       },
     }));
     await Movie.bulkWrite(bulkOps);

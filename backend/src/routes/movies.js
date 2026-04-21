@@ -29,10 +29,28 @@ router.get('/ranking', async (req, res) => {
     const { genre, limit = 100 } = req.query;
     const filter = genre ? { genres: genre } : {};
 
-    const movies = await Movie.find(filter)
-      .sort({ avg_rating: -1 })
-      .limit(parseInt(limit))
-      .select('title year genres director actors poster_url avg_rating review_count');
+    // Promedio bayesiano estilo IMDB: WR = (v/(v+m))*R + (m/(v+m))*C
+    // C = promedio global, m = umbral mínimo de reseñas
+    const [globalStats] = await Movie.aggregate([
+      { $group: { _id: null, C: { $avg: '$avg_rating' }, totalMovies: { $sum: 1 } } },
+    ]);
+    const C = globalStats?.C ?? 0;
+    const m = 5; // mínimo de reseñas para confiar en el rating
+
+    const movies = await Movie.aggregate([
+      { $match: filter },
+      { $addFields: {
+        weighted_rating: {
+          $add: [
+            { $multiply: [{ $divide: ['$review_count', { $add: ['$review_count', m] }] }, '$avg_rating'] },
+            { $multiply: [{ $divide: [m, { $add: ['$review_count', m] }] }, C] },
+          ],
+        },
+      }},
+      { $sort: { weighted_rating: -1 } },
+      { $limit: parseInt(limit) },
+      { $project: { title: 1, year: 1, genres: 1, director: 1, actors: 1, poster_url: 1, avg_rating: 1, review_count: 1, weighted_rating: 1 } },
+    ]);
 
     res.json(movies);
   } catch (err) {

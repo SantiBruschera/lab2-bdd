@@ -112,7 +112,7 @@ export default function MovieDetail() {
 
           <div className="detail-rating">
             <span className="detail-rating-value">{movie.avg_rating?.toFixed(1) ?? '—'}</span>
-            <span className="detail-rating-max">/10</span>
+            <span className="detail-rating-max">/5</span>
             <span className="detail-rating-count">({movie.review_count ?? 0} reseñas)</span>
           </div>
 

@@ -21,7 +21,7 @@ const movieSchema = new mongoose.Schema({
   poster_url: String,
   plot: String,
   runtime: Number,
-  avg_rating: { type: Number, default: 0, min: 0, max: 10 },
+  avg_rating: { type: Number, default: 0, min: 0, max: 5 },
   review_count: { type: Number, default: 0 },
 }, { timestamps: true });
 

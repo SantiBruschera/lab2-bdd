@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 
 const reviewSchema = new mongoose.Schema({
   author: { type: String, default: 'Anonymous' },
-  rating: { type: Number, required: true, min: 1, max: 10 },
+  rating: { type: Number, required: true, min: 0.5, max: 5 },
   text: {
     type: String,
     maxlength: [5000, 'Review text cannot exceed 5000 characters'],

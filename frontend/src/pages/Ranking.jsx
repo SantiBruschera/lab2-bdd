@@ -76,6 +76,7 @@ export default function Ranking() {
                 <div className="ranking-rating">
                   <span style={{ color: '#f5c518' }}>★</span>
                   {movie.avg_rating?.toFixed(1) ?? '—'}
+                  <span style={{ fontSize: '0.75rem', color: '#aaa', marginLeft: '2px' }}>/5</span>
                 </div>
               </div>
             );

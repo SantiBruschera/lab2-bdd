@@ -4,13 +4,12 @@ import { useAuth } from '../context/AuthContext';
 const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
 
 const LABELS = {
-  10: 'Obra maestra', 9: 'Excelente', 8: 'Muy buena', 7: 'Buena',
-  6: 'Regular', 5: 'Mediocre', 4: 'Mala', 3: 'Muy mala', 2: 'Terrible', 1: 'Horrible',
+  5: 'Obra maestra', 4: 'Muy buena', 3: 'Buena', 2: 'Mala', 1: 'Horrible',
 };
 
 export default function ReviewForm({ movieId, onSuccess }) {
   const { user, token } = useAuth();
-  const [form, setForm]   = useState({ author: '', rating: 7, text: '' });
+  const [form, setForm]   = useState({ author: '', rating: 3, text: '' });
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -32,7 +31,7 @@ export default function ReviewForm({ movieId, onSuccess }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al enviar reseña');
       setStatus({ type: 'ok', msg: 'Reseña publicada correctamente.' });
-      setForm({ author: '', rating: 7, text: '' });
+      setForm({ author: '', rating: 3, text: '' });
       onSuccess?.();
     } catch (err) {
       setStatus({ type: 'err', msg: err.message });
@@ -71,7 +70,7 @@ export default function ReviewForm({ movieId, onSuccess }) {
       <div className="form-group">
         <label>Calificación</label>
         <select value={form.rating} onChange={set('rating')}>
-          {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map(n => (
+          {[5, 4, 3, 2, 1].map(n => (
             <option key={n} value={n}>{n} — {LABELS[n]}</option>
           ))}
         </select>
@@ -83,7 +82,7 @@ export default function ReviewForm({ movieId, onSuccess }) {
           placeholder="Escribe tu reseña aquí..."
           value={form.text}
           onChange={set('text')}
-          maxLength={5000}
+          maxLength={10000}
         />
       </div>
       <div className="form-actions">
