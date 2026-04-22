@@ -153,10 +153,7 @@ async function seed() {
     const bulkOps = aggs.map(a => ({
       updateOne: {
         filter: { _id: a._id },
-        update: { $set: {
-          review_count: a.count,
-          avg_rating: Math.round(a.avgRating * 10) / 10,
-        }},
+        update: { $set: { review_count: a.count } },
       },
     }));
     await Movie.bulkWrite(bulkOps);
