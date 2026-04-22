@@ -147,6 +147,7 @@ async function seed() {
       avgRating: { $divide: ['$totalRating', '$count'] },
     }},
   ]);
+  
 
   if (aggs.length > 0) {
     const bulkOps = aggs.map(a => ({
