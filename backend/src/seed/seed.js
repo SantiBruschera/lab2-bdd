@@ -103,7 +103,7 @@ async function seed() {
       director: directorArr[0] || undefined,
       actors: actorNames.slice(0, MAX_ACTORS).map(name => ({ name })),
       imdb_id: row.imdb_tconst?.trim() || undefined,
-      avg_rating: Math.round(parseFloat(row.avg_rating) * 10) / 10,
+      avg_rating: 0,
       review_count: 0,
       poster_url: posterUrl
     });
@@ -111,12 +111,20 @@ async function seed() {
 
     const toInsert = reviewsRaw.slice(0, MAX_REVIEWS_PER_MOVIE);
     if (toInsert.length > 0) {
-      const reviewDocs = toInsert.map(r => ({
-        author: 'Anonymous',
-        rating: toFiveScale(r.rating),
-        text:   String(r.text || '').slice(0, MAX_REVIEW_CHARS),
-        date:   r.timestamp ? new Date(r.timestamp) : new Date(),
-      }));
+      let runningAvg = 0;
+      let count = 0;
+
+      const reviewDocs = toInsert.map(r => {
+        const rating = toFiveScale(r.rating);
+        count++;
+        runningAvg += (rating - runningAvg) / count;
+        return {
+          author: 'Anonymous',
+          rating,
+          text:   String(r.text || '').slice(0, MAX_REVIEW_CHARS),
+          date:   r.timestamp ? new Date(r.timestamp) : new Date(),
+        };
+      });
 
       const buckets = chunk(reviewDocs, BUCKET_SIZE);
       const bucketDocs = buckets.map((reviews, i) => ({
@@ -127,36 +135,18 @@ async function seed() {
       }));
 
       await ReviewBucket.insertMany(bucketDocs, { ordered: false });
-      reviewCount += toInsert.length;
+
+      await Movie.findByIdAndUpdate(movie._id, {
+        avg_rating:   Math.round(runningAvg * 10) / 10,
+        review_count: count,
+      });
+
+      reviewCount += count;
     }
 
     if (movieCount % 50 === 0) {
       console.log(`  ${movieCount} películas procesadas...`);
     }
-  }
-
-  const aggs = await ReviewBucket.aggregate([
-    { $unwind: '$reviews' },
-    { $group: {
-      _id: '$movie_id',
-      count: { $sum: 1 },
-      totalRating: { $sum: '$reviews.rating' },
-    }},
-    { $project: {
-      count: 1,
-      avgRating: { $divide: ['$totalRating', '$count'] },
-    }},
-  ]);
-  
-
-  if (aggs.length > 0) {
-    const bulkOps = aggs.map(a => ({
-      updateOne: {
-        filter: { _id: a._id },
-        update: { $set: { review_count: a.count } },
-      },
-    }));
-    await Movie.bulkWrite(bulkOps);
   }
 
   console.log(`\nFinalizado:`);
