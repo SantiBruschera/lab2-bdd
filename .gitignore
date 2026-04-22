@@ -140,3 +140,6 @@ vite.config.ts.timestamp-*
 
 # CSV data files
 *.csv
+
+# Claude Code internal worktrees
+.claude/worktrees/
