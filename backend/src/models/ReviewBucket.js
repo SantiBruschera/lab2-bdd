@@ -6,7 +6,7 @@ const reviewSchema = new mongoose.Schema({
   rating: { type: Number, required: true, min: 0.5, max: 5 },
   text: {
     type: String,
-    maxlength: [5000, 'Review text cannot exceed 5000 characters'],
+    maxlength: [10000, 'Review text cannot exceed 10000 characters'],
   },
   date: { type: Date, default: Date.now },
 }, { _id: false });
@@ -18,9 +18,9 @@ const reviewBucketSchema = new mongoose.Schema({
     ref: 'Movie',
     required: true,
   },
-  bucket: { type: Number, required: true }, 
-  count:  { type: Number, default: 0 },     
-  reviews: [reviewSchema],                  
+  bucket: { type: Number, required: true },
+  count:  { type: Number, default: 0 },
+  reviews: [reviewSchema],
 }, { timestamps: true });
 
 

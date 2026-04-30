@@ -4,6 +4,7 @@ const csv  = require('csv-parser');
 const mongoose = require('mongoose');
 const Movie        = require('../models/Movie');
 const ReviewBucket = require('../models/ReviewBucket');
+const Review       = require('../models/Review');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/umdb';
 const CSV_PATH  = process.env.CSV_PATH  || path.resolve(__dirname, '../../../mongodb.csv');
@@ -76,6 +77,7 @@ async function seed() {
 
   await Movie.deleteMany({});
   await ReviewBucket.deleteMany({});
+  await Review.deleteMany({});
   console.log('Colecciones limpiadas\n');
 
   const rows = await readCSV(CSV_PATH);
@@ -114,27 +116,45 @@ async function seed() {
       let runningAvg = 0;
       let count = 0;
 
-      const reviewDocs = toInsert.map(r => {
+      const bucketReviewDocs = [];
+      const reviewInserts = [];
+
+      for (const r of toInsert) {
         const rating = toFiveScale(r.rating);
         count++;
         runningAvg += (rating - runningAvg) / count;
-        return {
-          author: 'Anonymous',
-          rating,
-          text:   String(r.text || '').slice(0, MAX_REVIEW_CHARS),
-          date:   r.timestamp ? new Date(r.timestamp) : new Date(),
-        };
-      });
+        const date = r.timestamp ? new Date(r.timestamp) : new Date();
+        const text = String(r.text || '').slice(0, MAX_REVIEW_CHARS);
 
-      const buckets = chunk(reviewDocs, BUCKET_SIZE);
-      const bucketDocs = buckets.map((reviews, i) => ({
-        movie_id: movie._id,
-        bucket:   i + 1,
-        count:    reviews.length,
-        reviews,
-      }));
+        bucketReviewDocs.push({ author: 'Anonymous', rating, text, date });
+        reviewInserts.push({ movie_id: movie._id, author: 'Anonymous', rating, text, date });
+      }
 
-      await ReviewBucket.insertMany(bucketDocs, { ordered: false });
+      const bucketDocs = [];
+      let currentBucket = [];
+      let bucketNum = 1;
+
+      for (const review of bucketReviewDocs) {
+        currentBucket.push(review);
+        if (currentBucket.length >= BUCKET_SIZE) {
+          bucketDocs.push({ movie_id: movie._id, bucket: bucketNum++, count: currentBucket.length, reviews: currentBucket });
+          currentBucket = [];
+        }
+      }
+      if (currentBucket.length > 0) {
+        bucketDocs.push({ movie_id: movie._id, bucket: bucketNum, count: currentBucket.length, reviews: currentBucket });
+      }
+
+      try {
+        await ReviewBucket.insertMany(bucketDocs);
+      } catch (err) {
+        console.error(`Error insertando buckets para "${title}": [${err.name}] ${err.message}`);
+      }
+      try {
+        await Review.insertMany(reviewInserts, { ordered: false });
+      } catch (err) {
+        console.error(`Error insertando reviews para "${title}":`, err.message);
+      }
 
       await Movie.findByIdAndUpdate(movie._id, {
         avg_rating:   Math.round(runningAvg * 10) / 10,

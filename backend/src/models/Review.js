@@ -8,7 +8,7 @@ const reviewSchema = new mongoose.Schema({
     index: true,
   },
   author: { type: String, required: true, default: 'Anonymous' },
-  rating: { type: Number, required: true, min: 1, max: 10 },
+  rating: { type: Number, required: true, min: 0.5, max: 5 },
   text: {
     type: String,
     maxlength: [10000, 'Review text cannot exceed 10000 characters'],

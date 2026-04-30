@@ -20,8 +20,11 @@ services:
     environment:
       PORT: 4000
       MONGO_URI: mongodb://mongo:27017/umdb
+      CSV_PATH: /app/mongodb.csv
     ports:
       - "4000:4000"
+    volumes:
+      - ./mongodb.csv:/app/mongodb.csv:ro
 
   frontend:
     build:
