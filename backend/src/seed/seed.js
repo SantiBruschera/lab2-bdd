@@ -25,6 +25,15 @@ const topPosters = {
   "Dr. Strangelove or: How I Learned to Stop Worrying and Love the Bomb": "https://m.media-amazon.com/images/M/MV5BMjFjYzBlOTktMTI2OS00ZWVhLTgxMDUtNzAwODY2NmI3YTAzXkEyXkFqcGc@._V1_.jpg",
   "Pulp Fiction": "https://image.tmdb.org/t/p/original/gSnbhR0vftfJ2U6KpGmR7WzZlVo.jpg",
   "Casablanca": "https://http2.mlstatic.com/D_NQ_NP_722135-CBT97587995257_112025-O.webp",
+  "North by Northwest": "https://image.tmdb.org/t/p/original/kNOFPQrel9YFCVzI0DF8FnCEpCw.jpg",
+  "Yojimbo": "https://image.tmdb.org/t/p/original/tN7kYPjRhDolpui9sc9Eq9n5b2O.jpg",
+  "Memento": "https://image.tmdb.org/t/p/original/fKTPH2WvH8nHTXeBYBVhawtRqtR.jpg",
+  "When We Were Kings": "https://image.tmdb.org/t/p/original/yBkZK1JZOOJ3q5Jj1H9UP9T8YuV.jpg",
+  "Ikiru": "https://image.tmdb.org/t/p/original/dgNTS4EQDDVfkzJI5msKuHu2Ei3.jpg",
+  "On the Waterfront": "https://image.tmdb.org/t/p/original/v1RtJ1qR4v9nrnfoBVBl6hjTW9.jpg",
+  "Jean de Florette": "https://image.tmdb.org/t/p/original/atjyDRdOnOi2S28X3mNtJ7CQmFj.jpg",
+  "Star Wars: Episode IV - A New Hope": "https://image.tmdb.org/t/p/original/6FfCtAuVAW8XJjZ7eWeLibRLWTw.jpg",
+  "City Lights": "https://image.tmdb.org/t/p/original/bXNvzjULc9jrOVhGfjcc64uKZmZ.jpg",
 };
 
 
